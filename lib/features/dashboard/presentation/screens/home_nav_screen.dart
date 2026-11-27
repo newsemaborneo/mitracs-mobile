@@ -19,6 +19,7 @@ import '../../../chat/presentation/screens/multi_cs_inbox_screen.dart';
 import '../../../subscription/presentation/screens/owner_onboarding_plan_screen.dart';
 import '../../../catalog/presentation/screens/catalog_management_screen.dart';
 import 'dashboard_overview_screen.dart';
+import '../../../../core/services/app_update_checker.dart';
 
 class HomeNavScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -40,6 +41,7 @@ class _HomeNavScreenState extends ConsumerState<HomeNavScreen> {
     _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.instance.init();
+      AppUpdateChecker.checkForUpdate(context);
       _fetchIncomingOrdersCount();
       _checkSubscriptionAndTokenAlerts();
     });
