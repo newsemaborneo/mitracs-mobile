@@ -8,6 +8,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/widgets/app_state_widgets.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../auth/presentation/screens/sso_login_screen.dart';
 import '../../../dashboard/presentation/screens/home_nav_screen.dart';
 
 class OwnerOnboardingPlanScreen extends ConsumerStatefulWidget {
@@ -124,8 +125,47 @@ class _OwnerOnboardingPlanScreenState
     if (widget.isFromSettings || Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeNavScreen()),
+      // Jangan pernah biarkan tembus ke HomeNavScreen jika belum berlangganan aktif
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_outline_rounded, color: AppColors.warning),
+              SizedBox(width: 8),
+              Text('Akses Terkunci', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Text(
+            'Untuk mengoperasikan kasir POS & WhatsApp AI, bisnis Anda membutuhkan paket langganan aktif.\n\nApakah Anda ingin keluar ke layar Login?',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tetap di Sini', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ref.read(authProvider.notifier).logout();
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const SsoLoginScreen()),
+                    (route) => false,
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Keluar ke Login'),
+            ),
+          ],
+        ),
       );
     }
   }
@@ -411,16 +451,10 @@ class _OwnerOnboardingPlanScreenState
         ),
         title: const Text('Paket & Berlangganan'),
         actions: [
-          TextButton(
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: AppColors.danger, size: 20),
+            tooltip: 'Keluar Akun',
             onPressed: _exitWithoutSubscribing,
-            child: const Text(
-              'Nanti Saja',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondary,
-              ),
-            ),
           ),
         ],
       ),

@@ -58,8 +58,12 @@ class AuthNotifier extends Notifier<AuthState> {
     if (user.isPlatformSuperAdmin || activeBiz == null) return false;
     try {
       final subRes = await _apiClient.dio.get('/businesses/${activeBiz.id}/subscription');
-      if (subRes.data['success'] == true && subRes.data['data'] == null) {
-        return true;
+      if (subRes.data['success'] == true) {
+        final subData = subRes.data['data'];
+        // Jika belum ada langganan atau statusnya bukan ACTIVE -> Wajib onboarding/pilih paket
+        if (subData == null || subData['status'] != 'ACTIVE') {
+          return true;
+        }
       }
     } catch (_) {}
     return false;
