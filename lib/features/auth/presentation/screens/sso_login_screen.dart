@@ -177,10 +177,18 @@ class _SsoLoginScreenState extends ConsumerState<SsoLoginScreen> with SingleTick
       try {
         account = await GoogleSignIn.instance.authenticate();
       } catch (authErr) {
-        debugPrint('[SSO] authenticate() gagal, coba fallback signInSilently/signIn: $authErr');
-        // Jika authenticate memicu [16] Account reauth failed, fallback panggil signIn() standar
-        account = await GoogleSignIn.instance.signInSilently();
-        account ??= await GoogleSignIn.instance.authenticate(scopeHint: ['email']);
+        debugPrint('[SSO] authenticate() gagal, coba fallback attemptLightweightAuthentication: $authErr');
+        final lightweightAuth = GoogleSignIn.instance.attemptLightweightAuthentication();
+        if (lightweightAuth != null) {
+          try {
+            account = await lightweightAuth;
+          } catch (_) {}
+        }
+        if (account == null) {
+          try {
+            account = await GoogleSignIn.instance.authenticate(scopeHint: ['email']);
+          } catch (_) {}
+        }
       }
 
       if (account == null) {

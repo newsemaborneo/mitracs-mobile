@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -52,7 +53,8 @@ class _OwnerOnboardingPlanScreenState
 
   XFile? _paymentProofImage;
   final ImagePicker _picker = ImagePicker();
-  String _selectedPaymentMethod = 'BCA'; // BCA, MANDIRI, QRIS
+  String _selectedPaymentMethod = 'BCA'; // BCA, MANDIRI, DANA, QRIS
+  Map<String, dynamic>? _paymentSettings;
 
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -71,7 +73,21 @@ class _OwnerOnboardingPlanScreenState
     );
     _businessNameCtrl = TextEditingController();
     _outletNameCtrl = TextEditingController();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchPlans());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchPlans();
+      _fetchPaymentSettings();
+    });
+  }
+
+  Future<void> _fetchPaymentSettings() async {
+    try {
+      final res = await _api.dio.get('/payment-settings');
+      if (res.data['success'] == true && mounted) {
+        setState(() {
+          _paymentSettings = res.data['data'];
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -977,33 +993,15 @@ class _OwnerOnboardingPlanScreenState
           const SizedBox(height: 10),
           Row(
             children: [
-              _buildPayMethodChip('BCA', 'Transfer BCA'),
+              _buildPayMethodChip('BCA', _paymentSettings?['bankName'] ?? 'BCA'),
               const SizedBox(width: 8),
-              _buildPayMethodChip('MANDIRI', 'Mandiri'),
+              _buildPayMethodChip('DANA', 'DANA'),
               const SizedBox(width: 8),
               _buildPayMethodChip('QRIS', 'QRIS'),
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Text(
-              _selectedPaymentMethod == 'QRIS'
-                  ? 'Scan QRIS mitraCS.ai setelah konfirmasi, lalu unggah tangkapan layar bukti bayar.'
-                  : 'Transfer sesuai nominal tagihan ke rekening $_selectedPaymentMethod PT MitraCS Digital Indonesia, lalu unggah bukti transfer.',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ),
+          _buildPaymentInstructionCard(),
           const SizedBox(height: 14),
 
           // Upload Bukti
@@ -1100,6 +1098,143 @@ class _OwnerOnboardingPlanScreenState
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPaymentInstructionCard() {
+    final bankName = _paymentSettings?['bankName'] ?? 'BCA';
+    final accountNumber = _paymentSettings?['accountNumber'] ?? '123-456-7890';
+    final accountHolder = _paymentSettings?['accountHolder'] ?? 'PT MitraCS Digital Indonesia';
+    final danaNumber = _paymentSettings?['danaNumber'] ?? '0812-3456-7890';
+    final danaHolder = _paymentSettings?['danaHolder'] ?? 'MitraCS Laundry';
+    final qrisImageUrl = _paymentSettings?['qrisImageUrl']?.toString();
+    final customNotes = _paymentSettings?['instructions']?.toString();
+
+    if (_selectedPaymentMethod == 'QRIS') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          children: [
+            if (qrisImageUrl != null && qrisImageUrl.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  qrisImageUrl,
+                  height: 180,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.qr_code_2_rounded, size: 80, color: AppColors.primary),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ] else ...[
+              const Icon(Icons.qr_code_2_rounded, size: 80, color: AppColors.primary),
+              const SizedBox(height: 8),
+            ],
+            const Text(
+              'Scan QRIS mitraCS.ai',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              customNotes?.isNotEmpty == true
+                  ? customNotes!
+                  : 'Scan menggunakan BCA Mobile, GoPay, OVO, Dana, atau ShopeePay, lalu unggah bukti transfer di bawah.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isDana = _selectedPaymentMethod == 'DANA';
+    final title = isDana ? 'Dompet Digital DANA' : 'Transfer Bank ($bankName)';
+    final numLabel = isDana ? 'Nomor DANA' : 'Nomor Rekening';
+    final targetNum = isDana ? danaNumber : accountNumber;
+    final targetHolder = isDana ? danaHolder : accountHolder;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isDana ? Icons.account_balance_wallet_rounded : Icons.account_balance_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.textPrimary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(numLabel, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                      const SizedBox(height: 2),
+                      Text(
+                        targetNum,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.8, color: AppColors.textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text('a.n. $targetHolder', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                  tooltip: 'Salin Nomor',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: targetNum));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$numLabel disalin!'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          if (customNotes?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            Text(
+              customNotes!,
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
