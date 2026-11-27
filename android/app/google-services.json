@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "805833102272",
+    "project_id": "project-d985791c-1524-4c2f-954",
+    "storage_bucket": "project-d985791c-1524-4c2f-954.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805833102272:android:bdf79f753caa53a4f56e25",
+        "android_client_info": {
+          "package_name": "com.multibiz.multibiz_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyByPnHBTCyx4E_utvu6XTB6vnnMpG2YGRM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
