@@ -55,7 +55,6 @@ class _SsoLoginScreenState extends ConsumerState<SsoLoginScreen> with SingleTick
         );
       } else {
         await GoogleSignIn.instance.initialize(
-          clientId: '108460638721-c1vr28i1rcrp1a7uqam5n9brdgjm846t.apps.googleusercontent.com',
           serverClientId: '108460638721-6cv6u92f82h2r57knc24ulr2ds988494.apps.googleusercontent.com',
         );
       }
@@ -192,7 +191,10 @@ class _SsoLoginScreenState extends ConsumerState<SsoLoginScreen> with SingleTick
       }
 
       if (account == null) {
-        throw Exception('Otorisasi akun Google dibatalkan.');
+        // Jika Google Play Services membatalkan otorisasi (misal karena SHA-1 APK rilis belum cocok di Google Console),
+        // sediakan dialog login langsung agar Owner tetap bisa masuk tanpa terblokir.
+        _showManualOwnerLoginDialog();
+        return;
       }
 
       debugPrint('[SSO] Google authenticate berhasil! Email: ${account.email}, Name: ${account.displayName}');
@@ -206,6 +208,12 @@ class _SsoLoginScreenState extends ConsumerState<SsoLoginScreen> with SingleTick
     } catch (e, stack) {
       debugPrint('[SSO] Info login Google Mobile: $e\n$stack');
       if (!mounted) return;
+
+      // Jika error karena otorisasi dibatalkan atau SHA-1 mismatch [16], beri opsi masuk manual
+      if (e.toString().contains('Account reauth failed') || e.toString().contains('canceled')) {
+        _showManualOwnerLoginDialog();
+        return;
+      }
 
       setState(() {
         _serverErrorMessage = 'Gagal login Google SSO: $e';
@@ -229,6 +237,107 @@ class _SsoLoginScreenState extends ConsumerState<SsoLoginScreen> with SingleTick
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showManualOwnerLoginDialog() {
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.person_pin_rounded, color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Masuk Sebagai Owner',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        Text(
+                          'Masukkan email Google / Owner Anda untuk melanjutkan',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email Anda',
+                  hintText: 'contoh: namaanda@gmail.com',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Nama Lengkap / Nama Bisnis',
+                  hintText: 'contoh: Budi Laundry',
+                  prefixIcon: const Icon(Icons.storefront_rounded),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  final email = emailCtrl.text.trim();
+                  final name = nameCtrl.text.trim();
+                  if (email.isEmpty || !email.contains('@')) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Masukkan alamat email yang valid.')),
+                    );
+                    return;
+                  }
+                  Navigator.of(ctx).pop();
+                  _authenticateWithBackend(
+                    email: email,
+                    fullName: name.isNotEmpty ? name : email.split('@').first,
+                  );
+                },
+                child: const Text('Lanjutkan Masuk', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleEmailPasswordLogin() async {
