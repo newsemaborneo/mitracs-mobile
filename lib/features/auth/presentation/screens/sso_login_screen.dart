@@ -167,8 +167,26 @@ class _SsoLoginScreenState extends ConsumerState<SsoLoginScreen> with SingleTick
       _serverErrorMessage = null;
     });
     try {
-      debugPrint('[SSO] Menjalankan GoogleSignIn.instance.authenticate()...');
-      final account = await GoogleSignIn.instance.authenticate();
+      debugPrint('[SSO] Menjalankan GoogleSignIn...');
+      GoogleSignInAccount? account;
+      try {
+        // Coba disconnect sesi lama yang nyangkut agar prompt pemilihan akun muncul segar
+        await GoogleSignIn.instance.disconnect();
+      } catch (_) {}
+
+      try {
+        account = await GoogleSignIn.instance.authenticate();
+      } catch (authErr) {
+        debugPrint('[SSO] authenticate() gagal, coba fallback signInSilently/signIn: $authErr');
+        // Jika authenticate memicu [16] Account reauth failed, fallback panggil signIn() standar
+        account = await GoogleSignIn.instance.signInSilently();
+        account ??= await GoogleSignIn.instance.authenticate(scopeHint: ['email']);
+      }
+
+      if (account == null) {
+        throw Exception('Otorisasi akun Google dibatalkan.');
+      }
+
       debugPrint('[SSO] Google authenticate berhasil! Email: ${account.email}, Name: ${account.displayName}');
       final idToken = account.authentication.idToken;
       await _authenticateWithBackend(
