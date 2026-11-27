@@ -20,6 +20,7 @@ import '../../../subscription/presentation/screens/owner_onboarding_plan_screen.
 import '../../../catalog/presentation/screens/catalog_management_screen.dart';
 import 'dashboard_overview_screen.dart';
 import '../../../../core/services/app_update_checker.dart';
+import '../../../../core/widgets/feature_gate_wrapper.dart';
 
 class HomeNavScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -286,14 +287,22 @@ class _HomeNavScreenState extends ConsumerState<HomeNavScreen> {
         ),
       ),
       const OrdersListScreen(),
-      LaundryPosScreen(
-        onTransactionSuccess: () => _switchTab(0, [0, 1, 3]),
-        onViewOrders: () {
-          ref.read(ordersFilterProvider.notifier).setFilter('ALL');
-          _switchTab(1, [0, 1, 3]);
-        },
+      FeatureGateWrapper(
+        featureName: 'Kasir POS',
+        isAllowed: (policy) => policy.canCreateOrders,
+        child: LaundryPosScreen(
+          onTransactionSuccess: () => _switchTab(0, [0, 1, 3]),
+          onViewOrders: () {
+            ref.read(ordersFilterProvider.notifier).setFilter('ALL');
+            _switchTab(1, [0, 1, 3]);
+          },
+        ),
       ),
-      const MultiCsInboxScreen(),
+      FeatureGateWrapper(
+        featureName: 'Live Chat & WhatsApp',
+        isAllowed: (policy) => policy.canAccessWhatsApp,
+        child: const MultiCsInboxScreen(),
+      ),
       const _SettingsTabScreen(),
     ];
     final safeIndex = _currentIndex.clamp(0, screens.length - 1);
