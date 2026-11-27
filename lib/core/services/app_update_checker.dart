@@ -136,8 +136,16 @@ class AppUpdateChecker {
                       child: ElevatedButton(
                         onPressed: () async {
                           final uri = Uri.parse(downloadUrl);
-                          if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          try {
+                            final launched = await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                            if (!launched) {
+                              await launchUrl(uri, mode: LaunchMode.platformDefault);
+                            }
+                          } catch (err) {
+                            debugPrint('[AppUpdateChecker] Error buka URL download: $err');
                           }
                         },
                         style: ElevatedButton.styleFrom(
