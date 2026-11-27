@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class ApiClient {
   static const String defaultBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3001/api/v1',
+    defaultValue: 'https://mitracsai.my.id/api/v1',
   );
   static String baseUrl = defaultBaseUrl;
   final Dio dio = Dio();

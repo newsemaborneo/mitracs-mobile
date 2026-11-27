@@ -1,0 +1,55 @@
+name: Build & Deploy Mobile APK to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-apk:
+    name: Build Flutter Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: |
+          flutter build apk --release --dart-define=API_BASE_URL=https://mitracsai.my.id/api/v1
+
+      - name: Upload APK directly to VPS Website Download
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 43.173.42.161
+          username: ubuntu
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "build/app/outputs/flutter-apk/app-release.apk"
+          target: "/home/ubuntu/apps/mitracs/dist/download/"
+          strip_components: 4
+          rm: false
+
+      - name: Rename APK on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 43.173.42.161
+          username: ubuntu
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            mv /home/ubuntu/apps/mitracs/dist/download/app-release.apk /home/ubuntu/apps/mitracs/dist/download/multibiz-latest.apk
+            echo "APK berhasil di-deploy ke website mitracsai.my.id/download/multibiz-latest.apk"
